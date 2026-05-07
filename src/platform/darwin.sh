@@ -2,10 +2,29 @@
 # This file is licensed under the GPLv2+. Please see COPYING for more information.
 
 clip() {
+	copy_concealed() {
+		if command -v osascript &>/dev/null; then
+			osascript -l JavaScript \
+				-e 'ObjC.import("AppKit")' \
+				-e 'ObjC.import("Foundation")' \
+				-e 'const input = $.NSFileHandle.fileHandleWithStandardInput.readDataToEndOfFile' \
+				-e 'const text = $.NSString.alloc.initWithDataEncoding(input, $.NSUTF8StringEncoding)' \
+				-e 'if (!text) throw new Error("stdin is not UTF-8")' \
+				-e 'const pasteboard = $.NSPasteboard.generalPasteboard' \
+				-e 'pasteboard.clearContents' \
+				-e 'pasteboard.setStringForType(text, $.NSPasteboardTypeString)' \
+				-e 'pasteboard.setStringForType("", "org.nspasteboard.ConcealedType")' \
+				-e 'pasteboard.setStringForType("", "org.nspasteboard.TransientType")' \
+				-e 'undefined'
+		else
+			pbcopy
+		fi
+	}
+
 	local sleep_argv0="password store sleep for user $(id -u)"
 	pkill -f "^$sleep_argv0" 2>/dev/null && sleep 0.5
 	local before="$(pbpaste | $BASE64)"
-	echo -n "$1" | pbcopy
+	echo -n "$1" | copy_concealed
 	(
 		( exec -a "$sleep_argv0" sleep "$CLIP_TIME" )
 		local now="$(pbpaste | $BASE64)"
